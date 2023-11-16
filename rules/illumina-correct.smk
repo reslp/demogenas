@@ -1,7 +1,7 @@
 rule cor_bless_by_k:
 	input:
-		forward = "results/{sample}/trimming/{trimmer}/{sample}-full/{sample}.{trimmer}.1.fastq.gz",
-		reverse = "results/{sample}/trimming/{trimmer}/{sample}-full/{sample}.{trimmer}.2.fastq.gz",
+		forwardreads = "results/{sample}/trimming/{trimmer}/{sample}-full/{sample}.{trimmer}.1.fastq.gz",
+		reversereads = "results/{sample}/trimming/{trimmer}/{sample}-full/{sample}.{trimmer}.2.fastq.gz",
 		orphans = "results/{sample}/trimming/{trimmer}/{sample}-full/{sample}.{trimmer}.se.fastq.gz",
 	output:
 		ok = "results/{sample}/errorcorrection/bless/{trimmer}/bless-k{blessk}/bless-k{blessk}.done"
@@ -23,7 +23,7 @@ rule cor_bless_by_k:
 		#create empty file to suck up corrected reads to save space at this stage
 		ln -s /dev/null {params.dir}/bless-k{params.k}.corrected.fastq.00000
 		#concatenate all reads
-		cat {input.forward} {input.reverse} {input.orphans} > {params.dir}/all_reads.fastq.gz
+		cat {input.forwardreads} {input.reversereads} {input.orphans} > {params.dir}/all_reads.fastq.gz
 
 		#run bless
 		bless -read {params.dir}/all_reads.fastq.gz -kmerlength {params.k} -max_mem {resources.mem_gb} -notrim -smpthread {threads} -prefix {params.dir}/bless-k{params.k} 2>&1 | tee {log}
@@ -58,15 +58,15 @@ rule cor_bless_by_k:
 
 rule cor_bless_pe:
 	input:
-		forward = "results/{sample}/trimming/{trimmer}/{sample}-full/{sample}.{trimmer}.1.fastq.gz",
-		reverse = "results/{sample}/trimming/{trimmer}/{sample}-full/{sample}.{trimmer}.2.fastq.gz",
+		forwardreads = "results/{sample}/trimming/{trimmer}/{sample}-full/{sample}.{trimmer}.1.fastq.gz",
+		reversereads = "results/{sample}/trimming/{trimmer}/{sample}-full/{sample}.{trimmer}.2.fastq.gz",
 		bless_runs = expand("results/{{sample}}/errorcorrection/bless/{{trimmer}}/bless-k{blessk}/bless-k{blessk}.done", sample=Illumina_process_df["sample"], blessk=config["bless_k"], trimmer=config["illumina_trimming"])
 	wildcard_constraints:
 		trimmer="trimgalore.*",
 	output:
 		ok = "results/{sample}/errorcorrection/bless/{trimmer}/bless-kbest-pe.done",
-		forward = "results/{sample}/errorcorrection/bless/{trimmer}/bless-kbest-corrected/bless.corrected.1.fastq.gz",
-		reverse = "results/{sample}/errorcorrection/bless/{trimmer}/bless-kbest-corrected/bless.corrected.2.fastq.gz",
+		forwardreads = "results/{sample}/errorcorrection/bless/{trimmer}/bless-kbest-corrected/bless.corrected.1.fastq.gz",
+		reversereads = "results/{sample}/errorcorrection/bless/{trimmer}/bless-kbest-corrected/bless.corrected.2.fastq.gz",
 	log:
 		"results/{sample}/logs/bless-kbest-pe-{trimmer}.log.txt",
 	benchmark: "results/{sample}/benchmarks/bless-kbest-pe-{trimmer}.txt"
@@ -88,10 +88,10 @@ rule cor_bless_pe:
 		#set stage
 		if [[ ! -d {params.dir}/bless-kbest-corrected ]]; then mkdir -p {params.dir}/bless-kbest-corrected; else rm -rf {params.dir}/bless-kbest-corrected/bless-k$bestk-pe*; fi
 		#run bless
-		bless -read1 {input.forward} -read2 {input.reverse} -kmerlength $bestk -max_mem {resources.mem_gb} -load {params.dir}/bless-k$bestk/bless-k$bestk -notrim -smpthread {threads} -gzip -prefix {params.dir}/bless-kbest-corrected/bless-k$bestk-pe 2>&1 | tee {log}
+		bless -read1 {input.forwardreads} -read2 {input.reversereads} -kmerlength $bestk -max_mem {resources.mem_gb} -load {params.dir}/bless-k$bestk/bless-k$bestk -notrim -smpthread {threads} -gzip -prefix {params.dir}/bless-kbest-corrected/bless-k$bestk-pe 2>&1 | tee {log}
 		cd {params.dir}/bless-kbest-corrected/
-		ln -s bless-k$bestk-pe.1.corrected.fastq.gz $(basename {output.forward})
-		ln -s bless-k$bestk-pe.2.corrected.fastq.gz $(basename {output.reverse})
+		ln -s bless-k$bestk-pe.1.corrected.fastq.gz $(basename {output.forwardreads})
+		ln -s bless-k$bestk-pe.2.corrected.fastq.gz $(basename {output.reversereads})
 		cd {params.wd}
 		touch {output.ok}
 		"""
@@ -134,14 +134,14 @@ rule cor_bless_se:
 
 rule cor_correct_spades:
 	input:
-		forward = "results/{sample}/trimming/{trimmer}/{sample}-full/{sample}.{trimmer}.1.fastq.gz",
-		reverse = "results/{sample}/trimming/{trimmer}/{sample}-full/{sample}.{trimmer}.2.fastq.gz",
+		forwardreads = "results/{sample}/trimming/{trimmer}/{sample}-full/{sample}.{trimmer}.1.fastq.gz",
+		reversereads = "results/{sample}/trimming/{trimmer}/{sample}-full/{sample}.{trimmer}.2.fastq.gz",
 		orphans = "results/{sample}/trimming/{trimmer}/{sample}-full/{sample}.{trimmer}.se.fastq.gz",
 	wildcard_constraints:
 		trimmer="trimgalore.*",
 	output:
-		forward = "results/{sample}/errorcorrection/spades/{trimmer}/spades-corrected/corrected/spades.corrected.1.fastq.gz",
-		reverse = "results/{sample}/errorcorrection/spades/{trimmer}/spades-corrected/corrected/spades.corrected.2.fastq.gz",
+		forwardreads = "results/{sample}/errorcorrection/spades/{trimmer}/spades-corrected/corrected/spades.corrected.1.fastq.gz",
+		reversereads = "results/{sample}/errorcorrection/spades/{trimmer}/spades-corrected/corrected/spades.corrected.2.fastq.gz",
 		orphans = "results/{sample}/errorcorrection/spades/{trimmer}/spades-corrected/corrected/spades.corrected.se.fastq.gz",
 		ok = "results/{sample}/errorcorrection/spades/{trimmer}/spades-correct.ok",
 	log:
@@ -164,7 +164,7 @@ rule cor_correct_spades:
 		spades.py \
 		--only-error-correction \
 		-o {params.dir} \
-		-1 {input.forward} -2 {input.reverse} -s {input.orphans} \
+		-1 {input.forwardreads} -2 {input.reversereads} -s {input.orphans} \
 		-t $(( {threads} - 1 )) \
 		-m $(( {resources.mem_gb} - 5 )) 1>> {log.stdout} 2>> {log.stderr}
 

@@ -1,14 +1,14 @@
 rule pre_prepare_fastq:
 	input:
-		forward = get_raw_f_fastqs,
-		reverse = get_raw_r_fastqs
+		forwardreads = get_raw_f_fastqs,
+		reversereads = get_raw_r_fastqs
 	output:
-		forward = "results/{sample}/Illumina/raw_reads/from_fastq/{lib}/{sample}.{lib}.raw.1.fastq.gz",
-		reverse = "results/{sample}/Illumina/raw_reads/from_fastq/{lib}/{sample}.{lib}.raw.2.fastq.gz"
+		forwardreads = "results/{sample}/Illumina/raw_reads/from_fastq/{lib}/{sample}.{lib}.raw.1.fastq.gz",
+		reversereads = "results/{sample}/Illumina/raw_reads/from_fastq/{lib}/{sample}.{lib}.raw.2.fastq.gz"
 	shell:
 		"""
-		ln -s $(pwd)/{input.forward} $(pwd)/{output.forward}
-		ln -s $(pwd)/{input.reverse} $(pwd)/{output.reverse}
+		ln -s $(pwd)/{input.forwardreads} $(pwd)/{output.forwardreads}
+		ln -s $(pwd)/{input.reversereads} $(pwd)/{output.reversereads}
 		"""
 rule pre_sort_bam:
 	input:
@@ -38,8 +38,8 @@ rule pre_bam2fastq:
 	input:
 		rules.pre_sort_bam.output
 	output:
-		forward = "results/{sample}/Illumina/raw_reads/from_bam/{lib}/{sample}.{lib}.raw.1.fastq.gz",
-		reverse = "results/{sample}/Illumina/raw_reads/from_bam/{lib}/{sample}.{lib}.raw.2.fastq.gz"
+		forwardreads = "results/{sample}/Illumina/raw_reads/from_bam/{lib}/{sample}.{lib}.raw.1.fastq.gz",
+		reversereads = "results/{sample}/Illumina/raw_reads/from_bam/{lib}/{sample}.{lib}.raw.2.fastq.gz"
 	log:
 		stdout = "results/{sample}/logs/bam2fastq.{lib}.stdout.txt",
 		stderr = "results/{sample}/logs/bam2fastq.{lib}.stderr.txt"
@@ -61,8 +61,8 @@ rule pre_bam2fastq:
 
 rule tri_trimgalore:
 	input:
-		forward = input_for_trimgalore_f,
-		reverse = input_for_trimgalore_r,
+		forwardreads = input_for_trimgalore_f,
+		reversereads = input_for_trimgalore_r,
 	params:
 		wd = os.getcwd(),
 		lib = "{lib}",
@@ -85,7 +85,7 @@ rule tri_trimgalore:
 		"""
 		trim_galore \
 		--paired --length 70 -r1 71 -r2 71 --retain_unpaired --stringency 2 --quality 30 \
-		{input.forward} {input.reverse} 1> {log.stdout} 2> {log.stderr}
+		{input.forwardreads} {input.reversereads} 1> {log.stdout} 2> {log.stderr}
 
 		mv $(find ./ -name "*_val_1.fq.gz") {output.f_trimmed}
 		mv $(find ./ -name "*_val_2.fq.gz") {output.r_trimmed}
@@ -98,10 +98,10 @@ rule tri_trimgalore:
 		"""
 rule tri_gather_short_trimmed_by_lib:
 	input:
-		forward = input_for_clean_trim_fp,
-		reverse = input_for_clean_trim_rp,
-		forward_orphans = input_for_clean_trim_fo,
-		reverse_orphans = input_for_clean_trim_ro
+		forwardreads = input_for_clean_trim_fp,
+		reversereads = input_for_clean_trim_rp,
+		forwardreads_orphans = input_for_clean_trim_fo,
+		reversereads_orphans = input_for_clean_trim_ro
 	params:
 		wd = os.getcwd(),
 		sample = "{sample}",
@@ -116,22 +116,22 @@ rule tri_gather_short_trimmed_by_lib:
 	threads: 2
 	shell:
 		"""
-		if [ $(echo {input.forward} | wc -w) -gt 1 ]
+		if [ $(echo {input.forwardreads} | wc -w) -gt 1 ]
 		then
-			cat {input.forward} > {output.f_trimmed}
-			cat {input.reverse} > {output.r_trimmed}
+			cat {input.forwardreads} > {output.f_trimmed}
+			cat {input.reversereads} > {output.r_trimmed}
 		else
-			ln -s ../../../../../{input.forward} {output.f_trimmed}
-			ln -s ../../../../../{input.reverse} {output.r_trimmed}
+			ln -s ../../../../../{input.forwardreads} {output.f_trimmed}
+			ln -s ../../../../../{input.reversereads} {output.r_trimmed}
 		fi
-		cat {input.forward_orphans} {input.reverse_orphans} > {output.orphans}
+		cat {input.forwardreads_orphans} {input.reversereads_orphans} > {output.orphans}
 		touch {output.ok}
 		"""
 
 rule eva_fastqc_raw:
 	input:
-		forward = input_for_trimgalore_f,
-		reverse = input_for_trimgalore_r,
+		forwardreads = input_for_trimgalore_f,
+		reversereads = input_for_trimgalore_r,
 	params:
 		wd = os.getcwd(),
 		lib = "{lib}",
@@ -510,8 +510,8 @@ rule eva_plot_k_hist:
 
 rule clean_corrected_libs:
 	input:
-		forward = lambda wildcards: expand("results/{{sample}}/errorcorrection/bless/{lib}/{{sample}}.{lib}.1.corrected.fastq.gz", sample=wildcards.sample, lib=list(set(unitdict[wildcards.sample]) & set(Illumina_process_df["lib"].tolist()))),
-		reverse = lambda wildcards: expand("results/{{sample}}/errorcorrection/bless/{lib}/{{sample}}.{lib}.2.corrected.fastq.gz", sample=wildcards.sample, lib=list(set(unitdict[wildcards.sample]) & set(Illumina_process_df["lib"].tolist()))),
+		forwardreads = lambda wildcards: expand("results/{{sample}}/errorcorrection/bless/{lib}/{{sample}}.{lib}.1.corrected.fastq.gz", sample=wildcards.sample, lib=list(set(unitdict[wildcards.sample]) & set(Illumina_process_df["lib"].tolist()))),
+		reversereads = lambda wildcards: expand("results/{{sample}}/errorcorrection/bless/{lib}/{{sample}}.{lib}.2.corrected.fastq.gz", sample=wildcards.sample, lib=list(set(unitdict[wildcards.sample]) & set(Illumina_process_df["lib"].tolist()))),
 		orphans = lambda wildcards: expand("results/{{sample}}/errorcorrection/bless/{lib}/{{sample}}.{lib}.se.corrected.fastq.gz", sample=wildcards.sample, lib=list(set(unitdict[wildcards.sample]) & set(Illumina_process_df["lib"].tolist()))),
 	params:
 		wd = os.getcwd(),
@@ -527,13 +527,13 @@ rule clean_corrected_libs:
 	threads: 2
 	shell:
 		"""
-		if [ $(echo {input.forward} | wc -w) -gt 1 ]
+		if [ $(echo {input.forwardreads} | wc -w) -gt 1 ]
 		then
-			cat {input.forward} > {output.f}
-			cat {input.reverse} > {output.r}
+			cat {input.forwardreads} > {output.f}
+			cat {input.reversereads} > {output.r}
 		else
-			ln -s ../../../../../{input.forward} {output.f}
-			ln -s ../../../../../{input.reverse} {output.r}
+			ln -s ../../../../../{input.forwardreads} {output.f}
+			ln -s ../../../../../{input.reversereads} {output.r}
 		fi
 		cat {input.orphans} > {output.o}
 		touch {output.ok}
@@ -542,8 +542,8 @@ rule clean_corrected_libs:
 rule clean_merged_libs:
 	input:
 		merged = lambda wildcards: expand("results/{{sample}}/readmerging/usearch/{lib}/{{sample}}.{lib}.merged.fastq.gz", sample=wildcards.sample, lib=list(set(unitdict[wildcards.sample]) & set(Illumina_process_df["lib"].tolist()))),
-		forward = lambda wildcards: expand("results/{{sample}}/readmerging/usearch/{lib}/{{sample}}.{lib}_1.nm.fastq.gz", sample=wildcards.sample, lib=list(set(unitdict[wildcards.sample]) & set(Illumina_process_df["lib"].tolist()))),
-		reverse = lambda wildcards: expand("results/{{sample}}/readmerging/usearch/{lib}/{{sample}}.{lib}_2.nm.fastq.gz", sample=wildcards.sample, lib=list(set(unitdict[wildcards.sample]) & set(Illumina_process_df["lib"].tolist()))),
+		forwardreads = lambda wildcards: expand("results/{{sample}}/readmerging/usearch/{lib}/{{sample}}.{lib}_1.nm.fastq.gz", sample=wildcards.sample, lib=list(set(unitdict[wildcards.sample]) & set(Illumina_process_df["lib"].tolist()))),
+		reversereads = lambda wildcards: expand("results/{{sample}}/readmerging/usearch/{lib}/{{sample}}.{lib}_2.nm.fastq.gz", sample=wildcards.sample, lib=list(set(unitdict[wildcards.sample]) & set(Illumina_process_df["lib"].tolist()))),
 	params:
 		wd = os.getcwd(),
 		sample = "{sample}",
@@ -561,12 +561,12 @@ rule clean_merged_libs:
 		if [ $(echo {input.merged} | wc -w) -gt 1 ]
 		then
 			cat {input.merged} > {output.m}
-			cat {input.forward} > {output.f}
-			cat {input.reverse} > {output.r}
+			cat {input.forwardreads} > {output.f}
+			cat {input.reversereads} > {output.r}
 		else
 			ln -s ../../../../../{input.merged} {output.m}
-			ln -s ../../../../../{input.forward} {output.f}
-			ln -s ../../../../../{input.reverse} {output.r}
+			ln -s ../../../../../{input.forwardreads} {output.f}
+			ln -s ../../../../../{input.reversereads} {output.r}
 		fi
 		touch {output.ok}
 		"""
